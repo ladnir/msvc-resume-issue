@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cassert>
+#include <iostream>
 
 struct TestTask
 {
@@ -35,11 +36,10 @@ struct TestTask
 
 struct TestAwaitable
 {
-	std::promise<std::coroutine_handle<>> p;
-
 	bool await_ready() { return false; }
 	auto await_suspend(std::coroutine_handle<> h)
 	{
+		std::cout << "TestAwaitable await_suspend" << std::endl;
 		h.resume();
 		return std::noop_coroutine();
 	}
@@ -49,19 +49,21 @@ struct TestAwaitable
 
 int main()
 {
-	std::atomic<bool> b = false;
+	bool b = false;
 	TestAwaitable a;
-	auto f = a.p.get_future();
 
-	TestTask t1 = [](std::atomic<bool>& b, TestAwaitable& a) ->TestTask {
+	TestTask t1 = [](TestAwaitable& a, bool& b) ->TestTask {
 
-
-		assert(b.exchange(true) == false);
+		std::cout << "initial_suspend resumed" << std::endl;
+		assert(b == false);
+		b = true;
 
 		co_await a;
 
+		std::cout << "TestAwaitable resumed" << std::endl;
+
 		co_await std::suspend_always{};
-	}(b, a);
+	}(a, b);
 
 	t1.handle.resume();
 
