@@ -8,5 +8,7 @@ add_executable(proj "main.cpp" "orignial-issue.cpp")
 #)
 target_compile_options(proj PUBLIC
     "/std:c++latest"
+    
+            "/fsanitize=address"
 )
     

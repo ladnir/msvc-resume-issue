@@ -47,7 +47,7 @@ struct TestAwaitable
 	void await_resume() {}
 };
 
-int main()
+int recusive_resume()
 {
 	bool b = false;
 	TestAwaitable a;
@@ -70,3 +70,46 @@ int main()
 	return 0;
 }
 
+struct DestroyAwaitable
+{
+	bool await_ready() { return false; }
+	auto await_suspend(std::coroutine_handle<> h)
+	{
+		std::cout << "DestroyAwaitable await_suspend" << std::endl;
+		h.destroy();
+
+		// asan triggered here. Seems this call writes to the coro of h.
+		return std::noop_coroutine();
+	}
+	void await_resume() {}
+};
+
+int recusive_destroy()
+{
+	bool b = false;
+
+	TestTask t1 = [](bool& b) ->TestTask {
+
+		std::cout << "initial_suspend resumed" << std::endl;
+		assert(b == false);
+		b = true;
+
+		co_await DestroyAwaitable{};
+
+		std::cout << "TestAwaitable resumed" << std::endl;
+
+		co_await std::suspend_always{};
+	}(b);
+
+	t1.handle.resume();
+	t1.handle = {};
+	return 0;
+}
+
+
+int main()
+{
+	recusive_resume();
+	recusive_destroy();
+	return 0;
+}
